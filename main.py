@@ -1,24 +1,26 @@
-from fastapi import FastAPI ,UploadFile
+import asyncio
+from fastapi import FastAPI
+from bot.client import run_discord_bot
+from api.routes import router
+from services.message_store import MessageStore
+from services.rag_service import RAGService
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
+app.include_router(router)
 
-@app.get("/")
-def home():
-    return {"data":"welcome to home page"}
+message_store = MessageStore(os.getenv("DATABASE_URL"))
+rag_service = RAGService()
 
-@app.get("/contact")
-def contact():
-    return {"data":"welcome to contact page"}
+@app.on_event("startup")
+async def startup_event():
+    await message_store.init_db()
+    await rag_service.init_pinecone()
+    asyncio.create_task(run_discord_bot())
 
-@app.post("/upload")
-def handImage(files:list[UploadFile]):
-    print(files)
-    return {"status":"got the files"}
-    
-import uvicorn
-uvicorn.run(app)
-# Familiarity with web development frameworks (e.g., Gorilla, Gin, Echo)
-
-# https://discord.com/oauth2/authorize?client_id=1254166847109206178&permissions=563003640773716&integration_type=0&scope=bot
-
-# 326417770560
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
