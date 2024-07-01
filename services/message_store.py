@@ -2,13 +2,24 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from database.models import Base, Message
 from sqlalchemy.future import select
+from sqlalchemy.pool import NullPool
+import datetime
 
 class MessageStore:
     def __init__(self, database_url: str):
-        #URL starts with postgresql+asyncpg://
+        # URL starts with postgresql+asyncpg://
         if database_url.startswith('postgresql://'):
             database_url = database_url.replace('postgresql://', 'postgresql+asyncpg://', 1)
-        self.engine = create_async_engine(database_url)
+        
+        self.engine = create_async_engine(
+            database_url,
+            poolclass=NullPool,
+            connect_args={
+                "statement_cache_size": 0,
+                "prepared_statement_cache_size": 0
+            }
+        )
+        
         self.SessionLocal = sessionmaker(
             bind=self.engine, class_=AsyncSession, expire_on_commit=False
         )
@@ -18,6 +29,10 @@ class MessageStore:
             await conn.run_sync(Base.metadata.create_all)
 
     async def store_message(self, server_id: str, channel_id: str, user_id: str, content: str, timestamp):
+        # Convert the timestamp to naive datetime
+        if timestamp.tzinfo is not None:
+            timestamp = timestamp.replace(tzinfo=None)
+
         async with self.SessionLocal() as session:
             message = Message(
                 server_id=server_id,

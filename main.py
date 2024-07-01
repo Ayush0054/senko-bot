@@ -19,7 +19,7 @@ rag_service = RAGService()
 async def startup_event():
     await message_store.init_db()
     await rag_service.init_pinecone()
-    asyncio.create_task(run_discord_bot())
+    await run_discord_bot()
 
 if __name__ == "__main__":
     import uvicorn
