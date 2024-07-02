@@ -13,9 +13,17 @@ class ChatCommands(commands.Cog):
         self.message_store = MessageStore(os.getenv("DATABASE_URL"))
         self.rag_service = RAGService()
 
+    async def cog_load(self):
+        await self.rag_service.init_pinecone()
+
     @commands.command()
     async def chat(self, ctx, *, message: str):
         logging.info("Received !chat command")
+        
+        if self.rag_service.vectorstore is None:
+            await ctx.send("The RAG service is still initializing. Please try again in a moment.")
+            return
+
         # Retrieve recent messages for context
         recent_messages = await self.message_store.get_recent_messages(
             str(ctx.guild.id), str(ctx.channel.id)
@@ -44,6 +52,11 @@ class ChatCommands(commands.Cog):
     @commands.command()
     async def rag_query(self, ctx, *, question: str):
         logging.info("Received !rag_query command")
+        
+        if self.rag_service.vectorstore is None:
+            await ctx.send("The RAG service is still initializing. Please try again in a moment.")
+            return
+
         response = await self.rag_service.query(question)
         await ctx.send(response)
 
